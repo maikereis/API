@@ -1,7 +1,10 @@
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 
-
+class Response(BaseModel):
+    access_token : str
+    token_type : str
+    
 class Customer(BaseModel):
     """
     In cashback transactions we have a client, this class define a customer
@@ -60,3 +63,10 @@ class CashBackTransaction(BaseModel):
     sold_at: str
     customer: Customer
     products: List[Product]
+
+
+class User(BaseModel):
+    username: str
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    disabled: Optional[bool] = None
