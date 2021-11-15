@@ -12,7 +12,7 @@ from exceptions import (
     credentials_exception,
 )
 
-from logs.api_logger import logger
+from logs.customlogger import logger
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 

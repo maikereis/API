@@ -3,7 +3,7 @@ from passlib.context import CryptContext
 from models import UserInDB
 from db_api.fake_db import fake_users_db
 
-from logs.api_logger import logger
+from logs.customlogger import logger
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
