@@ -1,8 +1,8 @@
-from fastapi import Depends, FastAPI
+from fastapi import Depends, Body, FastAPI
 from fastapi.security import OAuth2PasswordRequestForm
 
-from logs.api_logger import logger
-from models import User, Token, TokenOwner
+from logs.customlogger import logger
+from models import User, Token, TokenOwner, CashBackTransaction
 from exceptions import credentials_exception
 from exceptions import non_user_exception, inactive_user_exception
 from security.autorization import get_jwt, verify_jwt
@@ -48,34 +48,14 @@ async def identify_user(token_owner: TokenOwner = Depends(verify_jwt)):
     return user
 
 
-async def get_current_active_user(current_user: User = Depends(identify_user)):
-    logger.info("called")
+@app.post("/api/cashback/")
+async def calculate_cashback(current_user: User = Depends(identify_user),
+                             transaction: CashBackTransaction = Body(None)):
     if current_user.disabled:
         raise inactive_user_exception
-    return current_user
-
-
-@app.get("/users/me/", response_model=User)
-async def read_users_me(current_user: User = Depends(get_current_active_user)):
-    """
-    Try to identify the user by the passed token as a header
-    The function :func:`read_users_me` calls :func:`identify_user`
-    (by [Depends()](https://fastapi.tiangolo.com/tutorial/dependencies/)
-    stack) that receives a token as a parameter, then tries to decode
-    the user,if the user was successfully decoded and the token is still
-    valid, returns the user.
-
-    """
-    logger.info("called")
-    return current_user
-
-
-@app.get("/users/me/items/")
-async def read_own_items(current_user:
-                         User = Depends(get_current_active_user)):
-    logger.info("called")
-    return [{"item_id": "Foo", "owner": current_user.username}]
-
+    logger.info(current_user.username)
+    logger.info(transaction.products)
+    return transaction
 
 if __name__ == "__main__":
     import uvicorn
