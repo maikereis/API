@@ -73,9 +73,10 @@ class CashBackTransaction(BaseModel):
 
             a list of products in the transaction.
     """
-    sold_at: str
+    sold_at: datetime
     customer: Customer
-    products: List[Product]
+    total: float
+    products: List[Product] = []
 
 
 class User(BaseModel):
