@@ -1,64 +1,83 @@
-from fastapi import Depends, FastAPI, Header, HTTPException, status
-from models import User, Response
-from fake_db import fake_users_db
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import Depends, FastAPI
+from fastapi.security import OAuth2PasswordRequestForm
+
+from logs.api_logger import logger
+from models import User, Token, TokenOwner
+from exceptions import credentials_exception
+from exceptions import non_user_exception, inactive_user_exception
+from security.autorization import get_jwt, verify_jwt
+from security.authentication import query_database, authenticate_user
+
 
 app = FastAPI()
 
+
 @app.get("/")
 def read_root():
+    logger.info("called")
     return {"CashBack API": "Hello World!"}
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+@app.post("/token", response_model=Token)
+async def request_new_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    """
+    Try to get a client access token. The client must
+    :func:`request_new_token` passing a
+    [Form](https://fastapi.tiangolo.com/tutorial/request-forms/)
+    data with a content-type 'x-www-urlencode' in the resquest.
+    """
+    logger.info("called")
 
-
-def fake_hash_password(password: str):
-    return "fakehashed" + password
-
-
-class UserInDB(User):
-    hashed_password: str
-
-
-def get_user(db, username: str):
-    if username in db:
-        user_dict = db[username]
-        return UserInDB(**user_dict)
-
-def fake_decode_token(token):
-    user = get_user(fake_users_db, token)
-    return user
-
-
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    user = fake_decode_token(token)
+    # Try to identify a client in the database
+    user = authenticate_user(form_data.username, form_data.password)
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise non_user_exception
+
+    jwt = get_jwt(user.username)
+    # Return the token to the client
+    response_token = Token(access_token=jwt, token_type="bearer")
+
+    return response_token.dict()
+
+
+async def identify_user(token_owner: TokenOwner = Depends(verify_jwt)):
+    logger.info("called")
+    user = query_database(username=token_owner.username)
+    if user is None:
+        raise credentials_exception
     return user
 
 
-async def get_current_active_user(current_user: User = Depends(get_current_user)):
+async def get_current_active_user(current_user: User = Depends(identify_user)):
+    logger.info("called")
     if current_user.disabled:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        raise inactive_user_exception
     return current_user
 
 
-@app.post("/token", response_model=Response)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    user_dict = fake_users_db.get(form_data.username)
-    if not user_dict:
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-    user = UserInDB(**user_dict)
-    hashed_password = fake_hash_password(form_data.password)
-    if not hashed_password == user.hashed_password:
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-    return {"access_token": user.username, "token_type": "bearer"}
-
-@app.get("/users/me")
+@app.get("/users/me/", response_model=User)
 async def read_users_me(current_user: User = Depends(get_current_active_user)):
+    """
+    Try to identify the user by the passed token as a header
+    The function :func:`read_users_me` calls :func:`identify_user`
+    (by [Depends()](https://fastapi.tiangolo.com/tutorial/dependencies/)
+    stack) that receives a token as a parameter, then tries to decode
+    the user,if the user was successfully decoded and the token is still
+    valid, returns the user.
+
+    """
+    logger.info("called")
     return current_user
+
+
+@app.get("/users/me/items/")
+async def read_own_items(current_user:
+                         User = Depends(get_current_active_user)):
+    logger.info("called")
+    return [{"item_id": "Foo", "owner": current_user.username}]
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("main:app", host="127.0.0.1", reload=True, port=8000)
