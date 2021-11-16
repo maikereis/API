@@ -64,16 +64,14 @@ async def request_cashback(
 
     if(mais_todos_response):
         """
+        store information in database like:
         mais_todos_response -> db_api/transaction.txt 
         return "cashback registred"
         """
     else:
         return "cashback solicitation refused"
 
-    
-
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run("main:app", host="127.0.0.1", reload=True, port=8000)

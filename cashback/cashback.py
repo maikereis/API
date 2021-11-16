@@ -22,7 +22,25 @@ def calculate_cashback(transaction: CashBackTransaction = Body(None)):
 
     return total_refound
 
+"""
+Send a Document object (defined on models.py) to Mais Todos API
 
+{
+	"document": "4b52cdb5-472a-11ec-8a99-107b443a2030",
+	"cashback": "0.8"
+}
+
+The answer would have the format
+
+{   
+    "sold_at": "2021-11-16T18:50:55",
+    "message": "cashback created",
+    "id": "SoMEID123"
+	"document": "4b52cdb5-472a-11ec-8a99-107b443a2030",
+	"cashback": "0.8"
+}
+
+"""
 def send_to_mais_TODOS(document: Document):
       
     response = requests.post(
@@ -35,7 +53,6 @@ def send_to_mais_TODOS(document: Document):
     THE END
 
     TEST IF THE RESPONSE FORMAT IS A DocumentResponse object 
-    
     
     if response == DocumentResponse():
         doc_resp = DocumentResponse(response)

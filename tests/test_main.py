@@ -68,4 +68,4 @@ def test_calculate_cashback(get_token):
         },
     )
     assert response.status_code == 200
-    assert response.json() == "domainexpansion"
+    assert response.json() == "cashback solicitation refused"
