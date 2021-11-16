@@ -1,13 +1,22 @@
 import re
+import uuid
+from uuid import UUID
 import numpy as np
+from datetime import datetime, timedelta, timezone
+
 from logs.customlogger import logger
 from typing import List, Optional
-from pydantic import BaseModel, validator
-from datetime import datetime, timedelta
+from pydantic import BaseModel, UUID1, validator
 from db_api.info_tb import PRODUCT_CATEGORIES
 
 
-RE_NAMES = "[A-Za-z]{3,20}( [A-Za-z]{2,25})?"
+RE_NAMES = "[A-Za-z]{2,30}"
+RE_FULLNAMES = "^[a-zA-Z]{2,40}(?: [a-zA-Z]+){0,4}$"
+RE_EMAILS = "^[a-z0-9.]+@[a-z0-9]+.([a-z]+).([a-z]+)"
+# A date in the past
+VERY_OLD = datetime(2000, 1, 1, 0, 0)
+# Transaction delay equivalent to timedelta(milliseconds=1)
+DELAY = 0.001
 
 
 class Customer(BaseModel):
@@ -32,10 +41,10 @@ class Customer(BaseModel):
     customer_cpf: str
 
     @validator('customer_name')
-    def customer_name_must_be_valid(cls, v):
-        if re.fullmatch(RE_NAMES, v) is None:
+    def customer_name_validator(cls, customer_name):
+        if re.fullmatch(RE_NAMES, customer_name) is None:
             raise ValueError("product name invalid")
-        return v
+        return customer_name
 
     def validate_cpf(cpf_to_validate: str):
         try:
@@ -72,10 +81,11 @@ class Customer(BaseModel):
         return False
 
     @validator('customer_cpf')
-    def cutomer_cpf_must_be_valid(cls, v):
-        if not cls.validate_cpf(v):
-            raise ValueError("invalid cpf")
-        return v
+    def cpf_validator(cls, customer_cpf):
+        if not cls.validate_cpf(customer_cpf):
+            logger.error('invalid cpf')
+            raise ValueError('invalid cpf')
+        return customer_cpf
 
 
 class Product(BaseModel):
@@ -99,40 +109,52 @@ class Product(BaseModel):
             the quantity of the product.
     """
 
-    # Keep these ordering because @validador 'values' param 
+    # Keep these ordering because @validador 'values' param
     # returns the values of the variables declared above
     category: str
     quantity: int
     value: int
-    
 
     @validator('category')
-    def category_must_be_valid(cls, v):
+    def category_has_only_letters(cls, category):
         # Check if the product name has only letters (ignoring cap),
-        # and if is in the database
-        if re.fullmatch(RE_NAMES, v) is None:
-            raise ValueError("product name invalid")
-        if v not in PRODUCT_CATEGORIES:
-            raise ValueError("unknown product")
-        return v
+        if re.fullmatch(RE_NAMES, category) is None:
+            logger.error('invalid product name')
+            raise ValueError('invalid product name')
+        return category
+
+    @validator('category')
+    def category_is_in_db(cls, category):
+        if category not in PRODUCT_CATEGORIES:
+            logger.error('unknown product')
+            raise ValueError('unknown product')
+        return category
 
     @validator('quantity')
-    def quantity_must_be_positive(cls, v):
-        if v < 0:
-            raise ValueError("product quantity cannot be negative")
-        return v
-    
-    # 'values' will return the values of 'category', and 'quantity'
+    def quantity_is_positive(cls, quantity):
+        if quantity < 0:
+            logger.error('negative quantity')
+            raise ValueError('negative quantity')
+        return quantity
+
     @validator('value')
-    def value_must_be_positive(cls, v, values):
-        if v < 0:
-            raise ValueError("product value cannot be negative")
-        elif v !=0 and values['quantity'] == 0:
-            raise ValueError("product whitout the quantity")
-        return v
+    def value_is_positive(cls, value):
+        if value < 0:
+            logger.error('negative value')
+            raise ValueError('negative value')
+        return value
 
-    
-
+    # 'values' will return the params 'category', and 'quantity'
+    @validator('value')
+    def has_value_must_have_quantity(cls, value, values):
+        try:
+            if value != 0 and values['quantity'] == 0:
+                logger.error('whitout quantity')
+                raise ValueError("whitout quantity")
+            return value
+        except KeyError:
+            logger.error('invalid quantity')
+            raise ValueError("invalid quantity")
 
 
 class CashBackTransaction(BaseModel):
@@ -157,10 +179,63 @@ class CashBackTransaction(BaseModel):
 
             a list of products in the transaction.
     """
-    sold_at: datetime
+    # Keep these ordering because @validador 'values' param returns the values
+    # of the variables declared above, so when we need the param 'products' to
+    # evaluate the 'total' it will validated and available
+    sold_at: datetime = datetime.now(timezone.utc)
     customer: Customer
-    total: float
     products: List[Product]
+    total: float
+
+    @validator('sold_at')
+    def sold_at_is_a_valid_time(cls, sold_at):
+        # Get the current time at UTC
+        now = datetime.now(timezone.utc)
+        # Check if the transaction datetime is too old or
+        # was made in the future
+        if (sold_at.timestamp() < VERY_OLD.timestamp()):
+            logger.error('the sold_at is very old')
+            raise ValueError('no way, at that time it was all bush')
+
+        if ((sold_at.timestamp() + DELAY) > now.timestamp()):
+            logger.error('the sold_at occurs in the future?')
+            raise ValueError('who are you, the Marty McFly ?')
+        return sold_at
+
+    def sum_products_values(products: List[Product]):
+        calculated_total = 0
+        for p in products:
+            calculated_total += p.value * p.quantity
+        return calculated_total
+
+    @validator('total')
+    def total_of_products_match(cls, total, values):
+        try:
+            if total != cls.sum_products_values(values['products']):
+                logger.error('the total of products differs')
+                raise ValueError('the total of products differs')
+            return total
+        except KeyError:
+            logger.error('invalid products')
+            raise ValueError('invalid products')
+
+class Document(BaseModel):
+    doc_id : UUID = uuid.uuid1()
+    cashback : float
+
+    @validator('cashback')
+    def cashback_is_positive(cls, cashback):
+        if cashback < 0:
+            logger.error('negative cashback')
+            raise ValueError('negative cashback')
+        return cashback
+
+
+class DocumentReponse(BaseModel):
+    created_at : datetime
+    message : str
+    id : str
+    doc_info : Document
 
 
 class User(BaseModel):
@@ -192,6 +267,30 @@ class User(BaseModel):
     full_name: Optional[str] = None
     email: Optional[str] = None
     disabled: Optional[bool] = None
+
+    # Verify if username has only letters
+    @validator('username')
+    def username_has_only_letters(cls, username):
+        if re.fullmatch(RE_NAMES, username) is None:
+            logger.error('invalid username')
+            raise ValueError('invalid username')
+        return username
+
+    # Verifies if the full name has only letters and spaces (can have 5 names)
+    @validator('full_name')
+    def full_name_has_only_letters(cls, full_name):
+        if re.fullmatch(RE_FULLNAMES, full_name) is None:
+            logger.error('invalid full name')
+            raise ValueError('invalid full name')
+        return full_name
+
+    # Verifies if the email matches the format "a.b.c@d.e.f"
+    @validator('email')
+    def email_has_correct_format(cls, email):
+        if re.fullmatch(RE_EMAILS, email) is None:
+            logger.error('invalid e-mail')
+            raise ValueError('e-mail invalid')
+        return email
 
 
 class UserInDB(User):
@@ -250,6 +349,13 @@ class TokenOwner(BaseModel):
     """
     username: Optional[str] = None
 
+    # Verify if username has only letters
+    @validator('username')
+    def username_has_only_letters(cls, username):
+        if re.fullmatch(RE_NAMES, username) is None:
+            raise ValueError("username name invalid")
+        return username
+
 
 class JWTPayload(BaseModel):
     """
@@ -281,4 +387,11 @@ class JWTPayload(BaseModel):
             lifetime : timedelta
 
         """
-        self.exp = self.datetime.utcnow() + lifetime
+        self.exp = self.datetime.now(timezone.utc) + lifetime
+
+    # Verify if username has only letters
+    @validator('sub')
+    def subject_has_only_letters(cls, sub):
+        if re.fullmatch(RE_NAMES, sub) is None:
+            raise ValueError("username name invalid")
+        return sub

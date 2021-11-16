@@ -1,6 +1,6 @@
 # async bug: "ValueError: set_wakeup_fd only works in main thread"
 import pytest
-
+import requests
 from fastapi.testclient import TestClient
 from main import app
 
@@ -62,10 +62,10 @@ def test_calculate_cashback(get_token):
         },
         json={
             "sold_at": "2021-11-15 18:54:40",
-            "customer": {"customer_name": "string", "customer_cpf": 0},
-            "total": 0,
-            "products": [{"product_type": 'A',"value":10.5,"quantity":1}]
-        }
+            "customer": {"customer_name": "string", "customer_cpf": "01867060221"},
+            "products": [{"category": "books", "quantity": 1, "value": 10}],
+            "total": 10,
+        },
     )
     assert response.status_code == 200
-    assert response.json()=='domainexpansion'
+    assert response.json() == "domainexpansion"

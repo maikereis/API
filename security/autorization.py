@@ -40,12 +40,13 @@ def create_jwt(jwt_payload: JWTPayload,
     try:
         new_jwt = jwt.encode(jwt_payload.dict(), secret, algorithm=algorithm)
         return new_jwt
-    except JWSError as e:
-        logger.error(e)
+    except JWSError:
+        logger.error('JWT cannot be decode')
         raise internal_error_exception
 
 
 def get_jwt(sub, lifetime=JWT_LIFETIME_MINUTES):
+    logger.info("called")
     # Create the JSON Web Token
     jwt_payload = JWTPayload(
         sub=sub, exp=datetime.utcnow() + timedelta(minutes=lifetime)
@@ -86,6 +87,7 @@ async def verify_jwt(jwt_string: str = Depends(oauth2_scheme)):
         # subject with, in this application, must contain the owner name.
         username: str = decoded_payload.get("sub")
         if username is None:
+            logger.error('Invalid Credentials')
             raise credentials_exception
 
         jwt_owner = TokenOwner(username=username)
@@ -93,8 +95,10 @@ async def verify_jwt(jwt_string: str = Depends(oauth2_scheme)):
 
     # Throw a Exception when the signature is expired
     except jwt.ExpiredSignatureError:
+        logger.error('Token Signature Expired')
         raise expired_signature_exception
     # Throw a JWTError when the SECURITY_KEY, ALGORITHM, or anything
     # else goes wrong.
     except JWTError:
+        logger.error('Invalid Credentials')
         raise credentials_exception
