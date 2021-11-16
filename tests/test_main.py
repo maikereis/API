@@ -64,13 +64,8 @@ def test_calculate_cashback(get_token):
             "sold_at": "2021-11-15 18:54:40",
             "customer": {"customer_name": "string", "customer_cpf": 0},
             "total": 0,
-            "products": [],
+            "products": [{"product_type": 'A',"value":10.5,"quantity":1}]
         }
     )
     assert response.status_code == 200
-    assert response.json()=={
-            "sold_at": "2021-11-15T18:54:40",
-            "customer": {"customer_name": "string", "customer_cpf": 0},
-            "total": 0,
-            "products": [],
-        }
+    assert response.json()=='domainexpansion'

@@ -8,7 +8,6 @@ from exceptions import non_user_exception, inactive_user_exception
 from security.autorization import get_jwt, verify_jwt
 from security.authentication import query_database, authenticate_user
 
-
 app = FastAPI()
 
 
@@ -47,17 +46,17 @@ async def identify_user(token_owner: TokenOwner = Depends(verify_jwt)):
         raise credentials_exception
     return user
 
+async def verify_transaction(transaction: CashBackTransaction = Body(None)):
+    # do something here
+    return 'domainexpansion'
 
 @app.post("/api/cashback/")
 async def calculate_cashback(current_user: User = Depends(identify_user),
-                             transaction: CashBackTransaction = Body(None)):
+                             transaction_status: str = Depends(verify_transaction)):
     if current_user.disabled:
         raise inactive_user_exception
-    logger.info(current_user.username)
-    logger.info(transaction.products)
-    return transaction
+    return transaction_status
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run("main:app", host="127.0.0.1", reload=True, port=8000)

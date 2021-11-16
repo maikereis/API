@@ -1,7 +1,10 @@
+import re
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError, validator
 from datetime import datetime, timedelta
+from db_api.info_tb import PRODUCT_CATEGORIES
 
+RE_NAMES = "[A-Za-z]{3,20}( [A-Za-z]{2,25})?"
 
 class Customer(BaseModel):
     """
@@ -23,7 +26,7 @@ class Customer(BaseModel):
 
     customer_name: str
     customer_cpf: int
-
+    
 
 class Product(BaseModel):
     """
@@ -46,9 +49,40 @@ class Product(BaseModel):
             the quantity of the product.
     """
 
-    product_type: str
-    value: float
+    # Keep these ordering because @validador 'values' param 
+    # returns the values of the variables declared above
+    category: str
     quantity: int
+    value: int
+    
+
+    @validator('category')
+    def category_must_be_valid(cls, v):
+        # Check if the product name has only letters (ignoring cap),
+        # and if is in the database
+        if re.fullmatch(RE_NAMES, v) is None:
+            raise ValueError("product name invalid")
+        if v not in PRODUCT_CATEGORIES:
+            raise ValueError("unknown product")
+        return v
+
+    @validator('quantity')
+    def quantity_must_be_positive(cls, v):
+        if v < 0:
+            raise ValueError("product quantity cannot be negative")
+        return v
+    
+    # 'values' will return the values of 'category', and 'quantity'
+    @validator('value')
+    def value_must_be_positive(cls, v, values):
+        if v < 0:
+            raise ValueError("product value cannot be negative")
+        elif v !=0 and values['quantity'] == 0:
+            raise ValueError("product whitout the quantity")
+        return v
+
+    
+
 
 
 class CashBackTransaction(BaseModel):
@@ -76,7 +110,7 @@ class CashBackTransaction(BaseModel):
     sold_at: datetime
     customer: Customer
     total: float
-    products: List[Product] = []
+    products: List[Product]
 
 
 class User(BaseModel):

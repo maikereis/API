@@ -1,7 +1,7 @@
 from passlib.context import CryptContext
 
 from models import UserInDB
-from db_api.fake_db import fake_users_db
+from db_api.fake_user_tb import fake_users_db
 
 from logs.customlogger import logger
 

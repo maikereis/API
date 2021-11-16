@@ -1,0 +1,1 @@
+PRODUCT_CATEGORIES = {'clothes', 'electronics', 'books'}

@@ -1,5 +1,4 @@
 from fastapi import HTTPException,  status
-
 inactive_user_exception = HTTPException(status_code=400,
                                         detail="Inactive user")
 
