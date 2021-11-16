@@ -1,10 +1,14 @@
 import re
+import numpy as np
+from logs.customlogger import logger
 from typing import List, Optional
-from pydantic import BaseModel, ValidationError, validator
+from pydantic import BaseModel, validator
 from datetime import datetime, timedelta
 from db_api.info_tb import PRODUCT_CATEGORIES
 
+
 RE_NAMES = "[A-Za-z]{3,20}( [A-Za-z]{2,25})?"
+
 
 class Customer(BaseModel):
     """
@@ -25,8 +29,54 @@ class Customer(BaseModel):
     """
 
     customer_name: str
-    customer_cpf: int
-    
+    customer_cpf: str
+
+    @validator('customer_name')
+    def customer_name_must_be_valid(cls, v):
+        if re.fullmatch(RE_NAMES, v) is None:
+            raise ValueError("product name invalid")
+        return v
+
+    def validate_cpf(cpf_to_validate: str):
+        try:
+            # Convert the string to a list of integers
+            cpf_as_list = list(map(int, cpf_to_validate))
+            # Remove last two digits
+            cpf = cpf_as_list[:-2]
+
+            # Create arrays to perfom the validation
+            validator_arr_digit1 = np.arange(2, 11)[::-1]
+            validator_arr_digit2 = np.arange(2, 12)[::-1]
+
+            # Calculate the first validator digit
+            acc = np.dot(cpf, validator_arr_digit1)
+            first_digit = 11 - (acc % 11)
+            if first_digit > 9:
+                first_digit = 0
+
+            # Insert digit on the cpf
+            cpf.append(first_digit)
+
+            # Calculate the last validator digit
+            acc = np.dot(cpf, validator_arr_digit2)
+            second_digit = 11 - (acc % 11)
+            second_digit
+
+            # Insert digit on the cpf
+            cpf.append(second_digit)
+
+            # Verify if the numbers matches
+            return cpf == cpf_as_list
+        except ValueError as e:
+            logger.error(e)
+        return False
+
+    @validator('customer_cpf')
+    def cutomer_cpf_must_be_valid(cls, v):
+        if not cls.validate_cpf(v):
+            raise ValueError("invalid cpf")
+        return v
+
 
 class Product(BaseModel):
     """
