@@ -1,4 +1,4 @@
-from fastapi import Depends, Body, FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.security import OAuth2PasswordRequestForm
 
 from logs.customlogger import logger
@@ -58,10 +58,12 @@ async def validate_cashback_transaction(
         logger.error("Inactive User / Access Denied")
         raise inactive_user_exception
 
-    return create_cashback(record)
-    
+    cashback_record = create_cashback(record)
+    print(cashback_record.dict())
+
+    return {"status": "successfully created cashback!"}
+
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run("main:app", host="127.0.0.1", reload=True, port=8000)

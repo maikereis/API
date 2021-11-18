@@ -1,5 +1,6 @@
 import re
 import numpy as np
+from uuid import UUID
 from datetime import datetime, timedelta, timezone
 
 from logs.customlogger import logger
@@ -217,9 +218,10 @@ class CashBackTransaction(BaseModel):
             logger.error('invalid products')
             raise ValueError('invalid products')
 
+
 class Record(BaseModel):
-    cpf : str
-    cashback : float
+    cpf: str
+    cashback: float
 
     @validator('cashback')
     def cashback_is_positive(cls, cashback):
@@ -230,10 +232,10 @@ class Record(BaseModel):
 
 
 class CashBackRecord(BaseModel):
-    created_at : datetime
-    message : str
-    id : str
-    record : Record
+    created_at: datetime
+    message: str
+    id: UUID
+    record: Record
 
 
 class User(BaseModel):

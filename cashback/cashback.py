@@ -1,12 +1,11 @@
 import requests
-from requests.structures import CaseInsensitiveDict
-
 from fastapi import Body
 from logs.customlogger import logger
 from models import CashBackTransaction, Record, CashBackRecord
 from db_api.info_tb import PRODUCT_CASHBACK
 
 MAIS_TODOS_MOCK_API_URL = "http://127.0.0.1:8001/Cashback/"
+
 
 # Search in a database table the cashback rate of product
 def get_cashback_rate(category, database=PRODUCT_CASHBACK):
@@ -38,10 +37,10 @@ def create_cashback(record: Record):
 
     if mais_todos_response.status_code != 200:
         return {"status": "error, your cashback can't be created!"}
- 
+
     try:
         cashback_record = CashBackRecord(**mais_todos_response.json())
-        return {"status": "successfully created cashback!"}
+        return cashback_record
     except Exception as e:
-        logger.error("invalid cashbackrecord")
+        logger.error(e)
         return {"status": "error, your cashback can't be created!"}
