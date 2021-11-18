@@ -2,12 +2,12 @@ from fastapi import Depends, Body, FastAPI
 from fastapi.security import OAuth2PasswordRequestForm
 
 from logs.customlogger import logger
-from models import User, Token, TokenOwner, Document
+from models import User, Token, TokenOwner
 from exceptions import credentials_exception
 from exceptions import non_user_exception, inactive_user_exception
 from security.autorization import get_jwt, verify_jwt
 from security.authentication import query_database, authenticate_user
-from cashback.cashback import calculate_cashback, send_to_mais_TODOS
+from cashback.cashback import create_record, create_cashback
 
 app = FastAPI()
 
@@ -49,29 +49,19 @@ async def identify_user(token_owner: TokenOwner = Depends(verify_jwt)):
 
 
 @app.post("/api/cashback/")
-async def request_cashback(
+async def validate_cashback_transaction(
     current_user: User = Depends(identify_user),
-    cashback: str = Depends(calculate_cashback),
+    record: str = Depends(create_record),
 ):
     logger.info("called")
     if current_user.disabled:
         logger.error("Inactive User / Access Denied")
         raise inactive_user_exception
 
-    transaction_doc = Document(cashback=cashback)
-
-    mais_todos_response = send_to_mais_TODOS(transaction_doc)
-
-    if(mais_todos_response):
-        """
-        store information in database like:
-        mais_todos_response -> db_api/transaction.txt 
-        return "cashback registred"
-        """
-    else:
-        return "cashback solicitation refused"
-
+    return create_cashback(record)
+    
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("main:app", host="127.0.0.1", reload=True, port=8000)

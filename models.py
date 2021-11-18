@@ -1,12 +1,10 @@
 import re
-import uuid
-from uuid import UUID
 import numpy as np
 from datetime import datetime, timedelta, timezone
 
 from logs.customlogger import logger
 from typing import List, Optional
-from pydantic import BaseModel, UUID1, validator
+from pydantic import BaseModel, validator
 from db_api.info_tb import PRODUCT_CATEGORIES
 
 
@@ -27,24 +25,24 @@ class Customer(BaseModel):
         a customer.
 
     Attributes:
-        customer_name : str
+        name : str
 
             a string containing the customer name.
 
-        customer_cpf : int
+        cpf : int
 
             a 11-digit number that represents a Brazilian identification
             document.
     """
 
-    customer_name: str
-    customer_cpf: str
+    name: str
+    cpf: str
 
-    @validator('customer_name')
-    def customer_name_validator(cls, customer_name):
-        if re.fullmatch(RE_NAMES, customer_name) is None:
+    @validator('name')
+    def name_validator(cls, name):
+        if re.fullmatch(RE_NAMES, name) is None:
             raise ValueError("product name invalid")
-        return customer_name
+        return name
 
     def validate_cpf(cpf_to_validate: str):
         try:
@@ -80,12 +78,12 @@ class Customer(BaseModel):
             logger.error(e)
         return False
 
-    @validator('customer_cpf')
-    def cpf_validator(cls, customer_cpf):
-        if not cls.validate_cpf(customer_cpf):
+    @validator('cpf')
+    def cpf_validator(cls, cpf):
+        if not cls.validate_cpf(cpf):
             logger.error('invalid cpf')
             raise ValueError('invalid cpf')
-        return customer_cpf
+        return cpf
 
 
 class Product(BaseModel):
@@ -219,8 +217,8 @@ class CashBackTransaction(BaseModel):
             logger.error('invalid products')
             raise ValueError('invalid products')
 
-class Document(BaseModel):
-    doc_id : UUID = uuid.uuid1()
+class Record(BaseModel):
+    cpf : str
     cashback : float
 
     @validator('cashback')
@@ -231,11 +229,11 @@ class Document(BaseModel):
         return cashback
 
 
-class DocumentReponse(BaseModel):
+class CashBackRecord(BaseModel):
     created_at : datetime
     message : str
     id : str
-    doc_info : Document
+    record : Record
 
 
 class User(BaseModel):
