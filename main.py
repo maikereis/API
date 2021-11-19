@@ -1,11 +1,10 @@
 from fastapi import Depends, FastAPI
 from fastapi.security import OAuth2PasswordRequestForm
-
 from logs.customlogger import logger
 from models import User, Token, TokenOwner
 from exceptions import credentials_exception
 from exceptions import non_user_exception, inactive_user_exception
-from security.autorization import get_jwt, verify_jwt
+from security.authorization import get_jwt, verify_jwt
 from security.authentication import query_database, authenticate_user
 from cashback.cashback import create_record, create_cashback
 
