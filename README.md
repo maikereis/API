@@ -85,7 +85,3 @@ Will return a new JWT for the API user. You must pass an username, and password 
 <h3>  POST - Validate Cashback Transaction </h3>
 
 This is the core of the CashBackAPI, after receive a valid token, the user can send the cashback transaction to be validated, and the registred by the mais todos API.
-
-
-
-
