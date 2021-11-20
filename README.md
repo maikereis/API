@@ -25,6 +25,25 @@ after make all the validations, this API will request a cashback to [MAIS_TODOS_
 
     'pip install -r requirements.txt'
 
+<h2> Setting Environment variables </h2>
+
+The [security](security) module is responsible for _encoding_, and _decoding_ the JWT. To perform these tasks, it needs a **secret key**, **algorithm**, and a token **lifetime**, all are sensitive information, in order to store these variables, it uses pydantic settings and .env files.
+
+The [config](config.py) file defines a class **Authorization Settings**, that when it is instantiated it searches in the file .env (in the project root folder) for variables.
+
+Create a file **.env** with:
+
+    /.env:
+
+    SECRET_KEY="4677b25090805fd888f642f9df5691ce7d9deef2e8a8af150ebdf765286fa87e"
+    ALGORITHM="HS256"
+    LIFETIME_MINUTES=30
+
+Use the following command to generate the SECRET_KEY:
+
+    > openssl rand -hex 32
+
+
 
 <h2> Start </h2>
 
