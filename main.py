@@ -3,8 +3,12 @@ from fastapi.security import OAuth2PasswordRequestForm
 from logs.customlogger import logger
 from models import User, Token, TokenOwner
 from exceptions import credentials_exception
-from exceptions import non_user_exception, inactive_user_exception
-from security.authorization import get_jwt, verify_jwt
+from exceptions import (
+    non_user_exception,
+    inactive_user_exception,
+    internal_error_exception,
+)
+from security.authorization import create_jwt, verify_jwt
 from security.authentication import query_database, authenticate_user
 from cashback.cashback import create_record, create_cashback
 
@@ -32,11 +36,15 @@ async def request_new_token(form_data: OAuth2PasswordRequestForm = Depends()):
     if not user:
         raise non_user_exception
 
-    jwt = get_jwt(user.username)
-    # Return the token to the client
-    response_token = Token(access_token=jwt, token_type="bearer")
+    jwt = create_jwt(user.username)
 
-    return response_token.dict()
+    try:
+        jwt = create_jwt(user.username)
+        response_token = Token(access_token=jwt, token_type="bearer")
+        return response_token.dict()
+    except Exception as e:
+        logger.error(e)
+        raise internal_error_exception
 
 
 async def identify_user(token_owner: TokenOwner = Depends(verify_jwt)):
@@ -58,11 +66,11 @@ async def validate_cashback_transaction(
         raise inactive_user_exception
 
     cashback_record = create_cashback(record)
-    print(cashback_record.dict())
 
     return {"status": "successfully created cashback!"}
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("main:app", host="127.0.0.1", reload=True, port=8000)

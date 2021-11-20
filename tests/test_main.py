@@ -6,8 +6,6 @@ from main import app
 client = TestClient(app)
 
 
-
-
 @pytest.fixture
 def get_token():
     response = client.post(
@@ -69,4 +67,4 @@ def test_calculate_cashback(get_token):
         },
     )
     assert response.status_code == 200
-    #assert response.json() == "cashback solicitation refused"
+    # assert response.json() == "cashback solicitation refused"

@@ -4,7 +4,8 @@ from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime, timedelta
 
 from models import JWTPayload, TokenOwner
-from .settings import JWT_SECRET_KEY, JWT_ALGORITHM, JWT_LIFETIME_MINUTES
+from config import AuthorizationSettings
+from logs.customlogger import logger
 
 from exceptions import (
     expired_signature_exception,
@@ -12,49 +13,53 @@ from exceptions import (
     credentials_exception,
 )
 
-from logs.customlogger import logger
+
+auth_settings = AuthorizationSettings()
+
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
-def create_jwt(jwt_payload: JWTPayload,
-               secret=JWT_SECRET_KEY, algorithm=JWT_ALGORITHM):
+def create_jwt(sub: str):
     """
-        Create the JWT by passing a :func:`models.TokenPayload`.\
-        It will use the in `settings.JWT_SECRET_KEY`, and \
-        `settings.JWT_ALGORITHM` to encode the `jwt_payload`.
+    Create the JWT by passing a :func:`sub` (subject) and a `exp`\
+    (expiration). The `auth_settings` load the `secret_key`, \
+    `algorithm` and `lifetime` from `.env` configuration file.
 
-        Parameters:
-            jwt_payload : JWTPayload
+    Parameters:
+        sub : str
 
-                a JWT payloab with 'sub'(subject) and 'exp'(expiration).
+            a JWT subject
 
-        Returns:
-            encoded_jwt : str
+    Returns:
+        new_jwt : str
 
-                a JWT string.
+            a JWT string with {'sub':<subject>, 'exp':<datetime>}\
+            encoded by secret_key, and algorithm.
 
     """
     logger.info("called")
 
     try:
-        new_jwt = jwt.encode(jwt_payload.dict(), secret, algorithm=algorithm)
+
+        # Create the JSON Web Token
+        jwt_payload = JWTPayload(
+            sub=sub,
+            exp=datetime.utcnow() + timedelta(minutes=auth_settings.lifetime),
+        )
+
+        # Encode the payload
+        new_jwt = jwt.encode(
+            jwt_payload.dict(),
+            auth_settings.secret_key,
+            algorithm=auth_settings.algorithm,
+        )
+
         return new_jwt
+
     except JWSError:
-        logger.error('JWT cannot be decode')
+        logger.error("JWT cannot be decode")
         raise internal_error_exception
-
-
-def get_jwt(sub, lifetime=JWT_LIFETIME_MINUTES):
-    logger.info("called")
-    # Create the JSON Web Token
-    jwt_payload = JWTPayload(
-        sub=sub, exp=datetime.utcnow() + timedelta(minutes=lifetime)
-    )
-    # Send payload ({'sub':string,'exp':datetime}) and receiber a JWT string
-    jwt = create_jwt(jwt_payload)
-
-    return jwt
 
 
 async def verify_jwt(jwt_string: str = Depends(oauth2_scheme)):
@@ -81,13 +86,15 @@ async def verify_jwt(jwt_string: str = Depends(oauth2_scheme)):
     try:
         # Try to decode the JWT content.
         decoded_payload = jwt.decode(
-            jwt_string, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM]
+            jwt_string,
+            auth_settings.secret_key,
+            algorithms=[auth_settings.algorithm],
         )
         # If successfully decoded, reads the content and access the
         # subject with, in this application, must contain the owner name.
         username: str = decoded_payload.get("sub")
         if username is None:
-            logger.error('Invalid Credentials')
+            logger.error("Invalid Credentials")
             raise credentials_exception
 
         jwt_owner = TokenOwner(username=username)
@@ -95,10 +102,10 @@ async def verify_jwt(jwt_string: str = Depends(oauth2_scheme)):
 
     # Throw a Exception when the signature is expired
     except jwt.ExpiredSignatureError:
-        logger.error('Token Signature Expired')
+        logger.error("Token Signature Expired")
         raise expired_signature_exception
     # Throw a JWTError when the SECURITY_KEY, ALGORITHM, or anything
     # else goes wrong.
     except JWTError:
-        logger.error('Invalid Credentials')
+        logger.error("Invalid Credentials")
         raise credentials_exception

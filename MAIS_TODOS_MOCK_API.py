@@ -21,13 +21,15 @@ async def create_cashback(record: Record):
     response = CashBackRecord(
         created_at=created_at_now,
         message="successfully created cashback!",
-        id = uuid.uuid1(),
-        record=record
+        id=uuid.uuid1(),
+        record=record,
     )
     return response
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("MAIS_TODOS_MOCK_API:app2", host="127.0.0.1",
+
+    uvicorn.run("MAIS_TODOS_MOCK_API:app2",
+                host="127.0.0.1",
                 reload=True, port=8001)
